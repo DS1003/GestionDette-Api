@@ -1,28 +1,55 @@
 <?php
+
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+
+use Laravel\Passport\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable;
+    use HasApiTokens, Notifiable, HasFactory;
 
+    
     protected $fillable = [
-        'nom', 'prenom', 'email', 'mot_de_passe', 'role', 'client_id'
+        'nom',
+        'prenom',
+        'login',
+        'role_id',
+        'password',
+        'refresh_token',
+        'photo', 
+        'etat'
     ];
 
     protected $hidden = [
-        'mot_de_passe',
+        'password',
+        'remember_token',
+        'refresh_token',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
     ];
 
-    public function client()
+    public function client(): HasOne
     {
-        return $this->belongsTo(Client::class);
+        return $this->hasOne(Client::class, 'user_id');
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+    
+    public function hasRole($roles)
+    {
+        return $this->role->hasRole($roles);
     }
 }

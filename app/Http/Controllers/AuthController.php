@@ -1,43 +1,68 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Routing\Controller;
+use App\Models\BlacklistedToken;
+use App\Interfaces\AuthentificationServiceInterface;
 
 class AuthController extends Controller
 {
+    protected $authService;
+
+    public function __construct(AuthentificationServiceInterface $authService)
+    {
+        $this->authService = $authService;
+    }
+
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'login' => 'required',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $result = $this->authService->authenticate($request->only('login', 'password'));
 
-        if (! $user || ! Hash::check($request->password, $user->mot_de_passe)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+        if (!$result) {
+            abort(401, 'Les identifiants sont incorrects');
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        return $result;
+    }
 
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
+    public function refresh(Request $request)
+    {
+        $request->validate([
+            'refresh_token' => 'required',
         ]);
+    
+        $user = User::where('refresh_token', $request->refresh_token)->first();
+        if (!$user) {
+            abort(401, 'Refresh token invalide');
+        }
+    
+        BlacklistedToken::create(['token' => $request->refresh_token, 'type' => 'refresh']);
+    
+        $this->authService->revokeTokens($user);
+        return $this->authService->generateTokens($user);
     }
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->bearerToken();
+        
+        if ($token) {
+            BlacklistedToken::create([
+                'token' => $token,
+                'type' => 'access',
+                'revoked_at' => now(),
+            ]);
+        }
 
-        return response()->json(['message' => 'Logged out successfully']);
+        $this->authService->logout();
+        return response(null, 204);
     }
 }

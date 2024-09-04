@@ -2,20 +2,34 @@
 
 namespace App\Http\Resources;
 
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ClientResource extends JsonResource
 {
-    public function toArray($request)
-    {
-        return [
-            'id' => $this->id,
-            'surnom' => $this->surnom,
-            'telephone' => $this->telephone,
-            'adresse' => $this->adresse,
-            'user' => new UserResource($this->whenLoaded('user')),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+{
+    $data = [
+        'surname' => $this->surname,
+        'telephone' => $this->telephone,
+        'adresse' => $this->adresse,
+    ];
+
+    if ($this->user) {
+        $data['user'] = [
+            'nom' => $this->user->nom,
+            'prenom' => $this->user->prenom,
+            'login' => $this->user->login,
+            'role_id' => $this->user->role_id,
+            'etat' => $this->user->etat,
         ];
     }
+
+    return $data;
+}
 }
